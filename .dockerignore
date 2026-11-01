@@ -1,0 +1,26 @@
+# Git and OS
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Backend / Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+ENV
+env
+.pytest_cache
+.coverage
+
+# Data directory contents (persisted on host)
+data/*.json
+!data/.gitkeep
