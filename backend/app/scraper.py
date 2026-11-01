@@ -191,13 +191,19 @@ def fetch_trending(
             period_stars = period_stars_span.get_text(strip=True) if period_stars_span else None
 
             # 6. Built by avatars
+            # The "Built by" span contains nested child elements (the avatar
+            # anchors), so its `.string` is None and `find(string=...)` never
+            # matches. Match on the element's full text instead.
             built_by: List[str] = []
-            built_by_container = art.find("span", string=re.compile(r"Built by", re.I))
+            built_by_container = None
+            for span in art.find_all("span"):
+                if span.get_text() and re.search(r"Built by", span.get_text(), re.I):
+                    built_by_container = span
+                    break
             if built_by_container:
-                parent = built_by_container.parent
-                for img in parent.find_all("img"):
+                for img in built_by_container.find_all("img"):
                     src = img.get("src")
-                    if src:
+                    if src and "avatars.githubusercontent.com" in src:
                         built_by.append(src)
 
             repos.append(

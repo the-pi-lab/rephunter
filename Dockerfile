@@ -5,9 +5,9 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build
 
-# Copy dependency manifests
-COPY frontend/package.json ./
-RUN npm install
+# Copy dependency manifests (lockfile included for reproducible installs)
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 
 # Copy source and build static artifacts
 COPY frontend/ ./

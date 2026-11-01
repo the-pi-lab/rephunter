@@ -1,6 +1,5 @@
 """Security utilities: SSRF protection, input sanitization, rate limiting, and API key masking."""
 
-import html
 import re
 import time
 from collections import defaultdict
@@ -71,7 +70,12 @@ def validate_api_base(url: Optional[str]) -> Optional[str]:
 
 
 def sanitize_text(text: Optional[str], max_len: int = 1500) -> str:
-    """Sanitize untrusted text: strips dangerous characters, trims length, escapes HTML."""
+    """Sanitize untrusted text: strips control characters and caps length.
+
+    HTML escaping is deliberately NOT applied here: this content is rendered
+    client-side by React (which escapes text nodes itself) and injected into
+    LLM prompts, so escaping would produce visible artifacts like '&#x27;'.
+    """
     if not text:
         return ""
     # Strip null bytes and control chars except newlines and tabs
@@ -79,8 +83,10 @@ def sanitize_text(text: Optional[str], max_len: int = 1500) -> str:
     cleaned = cleaned.strip()
     if len(cleaned) > max_len:
         cleaned = cleaned[:max_len] + "..."
-    # Escape HTML entities to prevent stored or reflected XSS
-    return html.escape(cleaned)
+    return cleaned
+
+
+MAX_TRACKED_CLIENTS = 10_000  # guard against unbounded memory growth
 
 
 class RateLimiter:
@@ -96,12 +102,22 @@ class RateLimiter:
         cutoff = now - self.window_seconds
         # Clean older entries
         self.requests[client_ip] = [t for t in self.requests[client_ip] if t > cutoff]
+        self._prune_stale(now)
         
         if len(self.requests[client_ip]) >= self.max_requests:
             return False
             
         self.requests[client_ip].append(now)
         return True
+
+    def _prune_stale(self, now: float) -> None:
+        """Bound memory: if too many client IPs are tracked, drop ones stale for the whole window."""
+        if len(self.requests) <= MAX_TRACKED_CLIENTS:
+            return
+        cutoff = now - self.window_seconds
+        stale = [ip for ip, ts in self.requests.items() if not ts or ts[-1] <= cutoff]
+        for ip in stale:
+            self.requests.pop(ip, None)
 
     def retry_after(self, client_ip: str) -> int:
         now = time.time()

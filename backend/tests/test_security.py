@@ -33,8 +33,9 @@ def test_sanitize_text():
     assert sanitize_text("  hello world  ") == "hello world"
     # Null byte removal
     assert sanitize_text("bad\x00data") == "baddata"
-    # HTML escaping
-    assert sanitize_text("<script>alert(1)</script>") == "&lt;script&gt;alert(1)&lt;/script&gt;"
+    # Control chars stripped; content is NOT html-escaped (React escapes on
+    # render; LLM prompts receive clean text)
+    assert sanitize_text("<script>alert(1)</script>") == "<script>alert(1)</script>"
     # Length truncating
     long_text = "a" * 2000
     sanitized = sanitize_text(long_text, max_len=100)
